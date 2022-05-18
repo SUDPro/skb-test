@@ -17,7 +17,6 @@ import ru.skb.services.MessagingService;
 public class MessagingServiceStub implements MessagingService<MessageStatementDto> {
 
     //it's stub for handle message
-    @Qualifier("statementMessagingHandlerImpl")
     private final MessagingHandler<MessageStatementDto> messagingHandler;
 
     @Override
