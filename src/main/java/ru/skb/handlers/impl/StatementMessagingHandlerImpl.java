@@ -31,14 +31,8 @@ public class StatementMessagingHandlerImpl implements MessagingHandler<MessageSt
     @Transactional
     public void handleMessage(Message<MessageStatementDto> incomingMessage) {
         if (incomingMessage != null && incomingMessage.getPayload() != null) {
-            Statement statement = statementService.getById(incomingMessage.getPayload().getStatementId());
-            statement.setStatus(incomingMessage.getPayload().getStatementStatus());
-            statementService.save(statement);
-            User user = userService.getById(statement.getUser().getId());
-            if (statement.getStatus().equals(StatementStatus.ACCESS)) {
-                user.setActive(true);
-                userService.save(user);
-            }
+            Statement statement = updateStatementStatus(incomingMessage);
+            User user = updateUserStatus(statement);
             retryTemplate.execute(context -> {
                 try {
                     mailSenderService.sendMail(user.getEmail(), MailBody.builder().status(statement.getStatus())
@@ -54,6 +48,21 @@ public class StatementMessagingHandlerImpl implements MessagingHandler<MessageSt
                 return true;
             }, retryContext -> addToDeadLetterQueue(statement));
         }
+    }
+
+    private User updateUserStatus(Statement statement) {
+        User user = userService.getById(statement.getUser().getId());
+        if (statement.getStatus().equals(StatementStatus.ACCESS)) {
+            user.setActive(true);
+            user = userService.save(user);
+        }
+        return user;
+    }
+
+    private Statement updateStatementStatus(Message<MessageStatementDto> incomingMessage) {
+        Statement statement = statementService.getById(incomingMessage.getPayload().getStatementId());
+        statement.setStatus(incomingMessage.getPayload().getStatementStatus());
+        return statementService.save(statement);
     }
 
     private boolean addToDeadLetterQueue(Statement statement) {
