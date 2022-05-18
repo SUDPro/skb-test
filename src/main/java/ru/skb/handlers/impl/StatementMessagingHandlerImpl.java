@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import ru.skb.dto.MessageStatementDto;
 import ru.skb.entities.MailBody;
 import ru.skb.entities.Message;
 import ru.skb.entities.Statement;
@@ -17,7 +19,8 @@ import ru.skb.services.UserService;
 
 @Component
 @RequiredArgsConstructor
-public class StatementMessagingHandlerImpl implements MessagingHandler<Statement> {
+@Slf4j
+public class StatementMessagingHandlerImpl implements MessagingHandler<MessageStatementDto> {
 
     private final StatementService statementService;
     private final UserService userService;
@@ -26,10 +29,10 @@ public class StatementMessagingHandlerImpl implements MessagingHandler<Statement
 
     @Override
     @Transactional
-    public void handleMessage(Message<Statement> incomingMessage) {
+    public void handleMessage(Message<MessageStatementDto> incomingMessage) {
         if (incomingMessage != null && incomingMessage.getPayload() != null) {
-            Statement statement = statementService.getById(incomingMessage.getPayload().getId());
-            statement.setStatus(incomingMessage.getPayload().getStatus());
+            Statement statement = statementService.getById(incomingMessage.getPayload().getStatementId());
+            statement.setStatus(incomingMessage.getPayload().getStatementStatus());
             statementService.save(statement);
             User user = userService.getById(statement.getUser().getId());
             if (statement.getStatus().equals(StatementStatus.ACCESS)) {
@@ -49,11 +52,12 @@ public class StatementMessagingHandlerImpl implements MessagingHandler<Statement
                 statement.setMailConfirmed(true);
                 statementService.save(statement);
                 return true;
-            }, retryContext -> addToDeadLetterQueue());
+            }, retryContext -> addToDeadLetterQueue(statement));
         }
     }
 
-    private boolean addToDeadLetterQueue() {
+    private boolean addToDeadLetterQueue(Statement statement) {
+        log.info("Message doesn't send with statement id: {}", statement.getId());
         /* add to dead letter queue */
         return true;
     }
